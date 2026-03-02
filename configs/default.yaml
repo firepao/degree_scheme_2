@@ -1,0 +1,58 @@
+seed: 42
+optimizer_engine: deap_nsga2
+population_size: 80
+num_generations: 60
+num_stages: 4
+nutrients: [N, P, K]
+beta_strength_k: 8.0
+var_lower_bound: 0.0
+var_upper_bound: 300.0
+
+# 动态变异概率参数（第一版先用于参数占位）
+mutation:
+  p0: 0.1
+  beta: 0.4
+  gamma: 0.3
+  delta: 0.2
+  sigma_base: 5.0 # 增强随机扰动，提升探索能力
+  alpha_knowledge: 0.3 # 减弱协方差约束，避免过早收敛
+  rho_np: 0.4
+  rho_nk: -0.2
+  rho_pk: 0.15
+  p_max: 0.6
+  stage_sensitivity: [1.0, 0.9, 1.1, 1.0]
+
+# 原型牵引参数（第一版占位）
+crossover:
+  gamma0: 0.05 # 再次大幅降低：避免早期被低质量精英带偏
+  prototype_count: 5
+  elite_ratio: 0.1 # 仅选取顶尖 10% 作为原型，确保原型质量
+  kmeans_iters: 15
+
+# 动态精英保留参数
+selection:
+  alpha0: 0.8       # Increase initial diversity weight to allow more exploration
+  beta_decay: 1.0   # Slower decay to maintain diversity throughout the run
+  omega_f: 0.4      # Reduce objective space weight slightly
+  omega_x: 0.6      # Increase decision space weight to emphasize genotypic diversity
+  k_neighbors: 15   # Increase neighbors for more robust sparsity
+
+# 评估目标（可扩展）
+objectives:
+  - yield
+  - cost
+  - nitrogen_loss
+
+# 模块开关（用于主对比与消融）
+use_prototype_crossover: true
+use_coupled_mutation: true
+use_dynamic_elite_retention: true
+
+# 代理模型更新占位参数
+surrogate:
+  enabled: false
+  update_interval_g: 10
+  query_batch_size: 6
+  target_objectives: [yield, nitrogen_loss]
+  model_num_estimators: 200
+  model_learning_rate: 0.05

@@ -1,0 +1,6 @@
+numpy>=1.24
+PyYAML>=6.0
+matplotlib>=3.7
+pytest>=7.4
+deap>=1.4.1
+lightgbm>=4.3.0

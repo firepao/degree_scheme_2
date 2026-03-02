@@ -1,0 +1,18 @@
+{
+  "batch_root": "D:\\degree_code\\scheml_2\\artifacts\\p7_batch_20260225_230932",
+  "paper_dir": "D:\\degree_code\\scheml_2\\artifacts\\p7_batch_20260225_230932\\paper_demo",
+  "defense_dir": "D:\\degree_code\\scheml_2\\deliverables\\defense_20260226_102059",
+  "slides_assets": [
+    "fig_hv_boxplot.png",
+    "fig_igd_boxplot.png",
+    "fig_pareto_overlay.png",
+    "fig_runtime_bar.png"
+  ],
+  "tables": [
+    "table_main_ablation.csv",
+    "table_main_ablation.md"
+  ],
+  "key_findings": "D:\\degree_code\\scheml_2\\deliverables\\defense_20260226_102059\\key_findings.md",
+  "method_overview": "D:\\degree_code\\scheml_2\\deliverables\\defense_20260226_102059\\method_overview.md",
+  "version_info": "D:\\degree_code\\scheml_2\\deliverables\\defense_20260226_102059\\version_info.txt"
+}
