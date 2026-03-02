@@ -1,0 +1,54 @@
+{
+  "Spring": {
+    "Temperature": 20.901058503336372,
+    "Rainfall": 1006.5151799382782,
+    "pH": 6.553267969393268,
+    "Light_Hours": 9.62462579019946,
+    "Light_Intensity": 378.2581152925555,
+    "Rh": 64.93725200577543,
+    "Fertility": "High",
+    "Photoperiod": "Short Day Period",
+    "Category_pH": "low_acidic",
+    "Soil_Type": "Loam",
+    "Season": "Spring"
+  },
+  "Summer": {
+    "Temperature": 23.388921868758832,
+    "Rainfall": 826.5568780433854,
+    "pH": 6.395413237040458,
+    "Light_Hours": 9.652792203122049,
+    "Light_Intensity": 492.5899693988509,
+    "Rh": 75.43513675025959,
+    "Fertility": "High",
+    "Photoperiod": "Short Day Period",
+    "Category_pH": "low_acidic",
+    "Soil_Type": "Loam",
+    "Season": "Summer"
+  },
+  "Fall": {
+    "Temperature": 19.678666805715014,
+    "Rainfall": 965.2549531855301,
+    "pH": 6.449224450686732,
+    "Light_Hours": 9.383566604932023,
+    "Light_Intensity": 381.5066880316237,
+    "Rh": 65.44897796604391,
+    "Fertility": "High",
+    "Photoperiod": "Short Day Period",
+    "Category_pH": "low_acidic",
+    "Soil_Type": "Loam",
+    "Season": "Fall"
+  },
+  "Winter": {
+    "Temperature": 18.276050912446454,
+    "Rainfall": 811.4970598316243,
+    "pH": 6.284727871696882,
+    "Light_Hours": 7.798025193686233,
+    "Light_Intensity": 314.3395813882559,
+    "Rh": 65.39942933550032,
+    "Fertility": "High",
+    "Photoperiod": "Short Day Period",
+    "Category_pH": "low_acidic",
+    "Soil_Type": "Loam",
+    "Season": "Winter"
+  }
+}

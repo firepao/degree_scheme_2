@@ -1,0 +1,19 @@
+{
+  "batch_root": "artifacts\\repro_i5_20260226_104113\\batch_20260226_104114",
+  "evaluation_dir": "artifacts\\repro_i5_20260226_104113\\batch_20260226_104114\\evaluation_20260226_104115",
+  "run_metrics": "artifacts\\repro_i5_20260226_104113\\batch_20260226_104114\\evaluation_20260226_104115\\run_metrics.csv",
+  "summary_metrics": "artifacts\\repro_i5_20260226_104113\\batch_20260226_104114\\evaluation_20260226_104115\\summary_metrics.csv",
+  "group_by": [
+    "engine",
+    "use_prototype_crossover",
+    "use_coupled_mutation",
+    "use_dynamic_elite_retention",
+    "surrogate_enabled"
+  ],
+  "outputs": {
+    "fig_hv_boxplot": "artifacts\\repro_i5_20260226_104113\\batch_20260226_104114\\paper_20260226_104113\\fig_hv_boxplot.png",
+    "fig_igd_boxplot": "artifacts\\repro_i5_20260226_104113\\batch_20260226_104114\\paper_20260226_104113\\fig_igd_boxplot.png",
+    "fig_runtime_bar": "artifacts\\repro_i5_20260226_104113\\batch_20260226_104114\\paper_20260226_104113\\fig_runtime_bar.png",
+    "fig_pareto_overlay": "artifacts\\repro_i5_20260226_104113\\batch_20260226_104114\\paper_20260226_104113\\fig_pareto_overlay.png"
+  }
+}

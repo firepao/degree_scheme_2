@@ -1,0 +1,2 @@
+engine,use_prototype_crossover,use_coupled_mutation,use_dynamic_elite_retention,surrogate_enabled,population_size,num_generations,runs,hv_mean,hv_std,igd_mean,igd_std,elapsed_mean,elapsed_std
+deap_nsga2,True,True,True,False,20,4,1,36526440.933240,0.000000,0.000000,0.000000,0.559658,0.000000

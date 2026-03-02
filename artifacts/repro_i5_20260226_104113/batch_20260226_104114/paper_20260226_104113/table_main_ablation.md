@@ -1,0 +1,3 @@
+| scenario | engine | population_size | num_generations | runs | HV | IGD | Runtime(s) |
+|---|---|---|---|---|---|---|---|
+| Main (No Surrogate) | deap_nsga2 | 20 | 4 | 1 | 40641749.067 ± 0.000 | 0.000 ± 0.000 | 0.370 ± 0.000 |

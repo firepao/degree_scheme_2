@@ -1,0 +1,86 @@
+{
+  "timestamp": "20260226_102858",
+  "repo_root": "D:\\degree_code\\scheml_2",
+  "repro_root": "D:\\degree_code\\scheml_2\\artifacts\\repro_i3check_20260226_102858",
+  "batch_root": "D:\\degree_code\\scheml_2\\artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900",
+  "evaluation_root": "D:\\degree_code\\scheml_2\\artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\evaluation_20260226_102901",
+  "paper_root": "D:\\degree_code\\scheml_2\\artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\paper_20260226_102858",
+  "python_executable": "python",
+  "commands": [
+    [
+      "python",
+      "experiments/batch_run.py",
+      "--config",
+      "configs/default.yaml",
+      "--out",
+      "D:\\degree_code\\scheml_2\\artifacts\\repro_i3check_20260226_102858\\batch",
+      "--engines",
+      "deap_nsga2",
+      "--seeds",
+      "42",
+      "--pop-sizes",
+      "20",
+      "--generations",
+      "4",
+      "--prototype-flags",
+      "true",
+      "--coupled-flags",
+      "true",
+      "--dynamic-elite-flags",
+      "true",
+      "--surrogate-flags",
+      "false"
+    ],
+    [
+      "python",
+      "experiments/evaluate_batch.py",
+      "--batch-root",
+      "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900",
+      "--samples",
+      "2000",
+      "--seed",
+      "42"
+    ],
+    [
+      "python",
+      "experiments/export_paper_figures.py",
+      "--batch-root",
+      "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900",
+      "--evaluation-dir",
+      "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\evaluation_20260226_102901",
+      "--out-dir",
+      "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\paper_20260226_102858",
+      "--dpi",
+      "300"
+    ],
+    [
+      "python",
+      "experiments/build_result_report.py",
+      "--batch-root",
+      "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900",
+      "--evaluation-dir",
+      "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\evaluation_20260226_102901",
+      "--out-dir",
+      "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\paper_20260226_102858"
+    ]
+  ],
+  "lock_files": {
+    "environment_lock": "D:\\degree_code\\scheml_2\\artifacts\\repro_i3check_20260226_102858\\environment.lock.txt",
+    "run_commands_log": "D:\\degree_code\\scheml_2\\artifacts\\repro_i3check_20260226_102858\\run_commands.log",
+    "git_state": "D:\\degree_code\\scheml_2\\artifacts\\repro_i3check_20260226_102858\\git_state.txt"
+  },
+  "params": {
+    "config": "configs/default.yaml",
+    "engines": "deap_nsga2",
+    "seeds": "42",
+    "pop_sizes": "20",
+    "generations": "4",
+    "prototype_flags": "true",
+    "coupled_flags": "true",
+    "dynamic_elite_flags": "true",
+    "surrogate_flags": "false",
+    "hv_samples": 2000,
+    "hv_seed": 42,
+    "dpi": 300
+  }
+}

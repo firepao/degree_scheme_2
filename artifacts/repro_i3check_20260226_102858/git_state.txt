@@ -1,0 +1,6 @@
+branch: <failed: git rev-parse --abbrev-ref HEAD | CalledProcessError: Command '['git', 'rev-parse', '--abbrev-ref', 'HEAD']' returned non-zero exit status 128.>
+commit: <failed: git rev-parse HEAD | CalledProcessError: Command '['git', 'rev-parse', 'HEAD']' returned non-zero exit status 128.>
+status:
+<failed: git status --short | CalledProcessError: Command '['git', 'status', '--short']' returned non-zero exit status 128.>
+changed_files:
+<failed: git diff --name-only | CalledProcessError: Command '['git', 'diff', '--name-only']' returned non-zero exit status 129.>

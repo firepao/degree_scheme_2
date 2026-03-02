@@ -1,0 +1,19 @@
+{
+  "batch_root": "artifacts\\p7_batch_20260225_230932",
+  "evaluation_dir": "artifacts\\p7_batch_20260225_230932\\evaluation_20260225_231026",
+  "run_metrics": "artifacts\\p7_batch_20260225_230932\\evaluation_20260225_231026\\run_metrics.csv",
+  "summary_metrics": "artifacts\\p7_batch_20260225_230932\\evaluation_20260225_231026\\summary_metrics.csv",
+  "group_by": [
+    "engine",
+    "use_prototype_crossover",
+    "use_coupled_mutation",
+    "use_dynamic_elite_retention",
+    "surrogate_enabled"
+  ],
+  "outputs": {
+    "fig_hv_boxplot": "artifacts\\p7_batch_20260225_230932\\paper_demo\\fig_hv_boxplot.png",
+    "fig_igd_boxplot": "artifacts\\p7_batch_20260225_230932\\paper_demo\\fig_igd_boxplot.png",
+    "fig_runtime_bar": "artifacts\\p7_batch_20260225_230932\\paper_demo\\fig_runtime_bar.png",
+    "fig_pareto_overlay": "artifacts\\p7_batch_20260225_230932\\paper_demo\\fig_pareto_overlay.png"
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "batch_root": "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900",
+  "evaluation_dir": "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\evaluation_20260226_102901",
+  "run_metrics": "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\evaluation_20260226_102901\\run_metrics.csv",
+  "summary_metrics": "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\evaluation_20260226_102901\\summary_metrics.csv",
+  "group_by": [
+    "engine",
+    "use_prototype_crossover",
+    "use_coupled_mutation",
+    "use_dynamic_elite_retention",
+    "surrogate_enabled"
+  ],
+  "outputs": {
+    "fig_hv_boxplot": "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\paper_20260226_102858\\fig_hv_boxplot.png",
+    "fig_igd_boxplot": "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\paper_20260226_102858\\fig_igd_boxplot.png",
+    "fig_runtime_bar": "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\paper_20260226_102858\\fig_runtime_bar.png",
+    "fig_pareto_overlay": "artifacts\\repro_i3check_20260226_102858\\batch_20260226_102900\\paper_20260226_102858\\fig_pareto_overlay.png"
+  }
+}
