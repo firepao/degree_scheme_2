@@ -31,10 +31,10 @@ crossover:
 
 # 动态精英保留参数
 selection:
-  alpha0: 0.8       # Increase initial diversity weight to allow more exploration
+  alpha0: 0.0       # Set to 0.0 to prioritize convergence (matches NSGA-II behavior exactly)
   beta_decay: 1.0   # Slower decay to maintain diversity throughout the run
-  omega_f: 0.4      # Reduce objective space weight slightly
-  omega_x: 0.6      # Increase decision space weight to emphasize genotypic diversity
+  omega_f: 1.0      # (Base weights, effectively overridden by dynamic alpha_t logic)
+  omega_x: 0.1      # (Base weights, effectively overridden by dynamic alpha_t logic)
   k_neighbors: 15   # Increase neighbors for more robust sparsity
 
 # 评估目标（可扩展）

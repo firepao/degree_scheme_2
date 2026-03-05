@@ -27,6 +27,27 @@ def igd(solution_set: np.ndarray, reference_front: np.ndarray) -> float:
     return float(np.mean(nearest))
 
 
+def spacing(objective_values: np.ndarray) -> float:
+    """计算 Spacing 指标 (衡量解分布的均匀性，越小越好)"""
+    vals = np.asarray(objective_values, dtype=float)
+    n = vals.shape[0]
+    if n < 2:
+        return 0.0
+    
+    # 计算每个点到最近邻点的距离
+    dists = np.zeros(n)
+    for i in range(n):
+        diff = vals - vals[i]
+        dist = np.linalg.norm(diff, axis=1)
+        dist[i] = np.inf # 排除自身
+        dists[i] = np.min(dist)
+        
+    d_mean = np.mean(dists)
+    # 标准差公式 (通常分母为 n-1)
+    s = np.sqrt(np.sum((dists - d_mean)**2) / (n - 1))
+    return float(s)
+
+
 def hypervolume_monte_carlo(
     objective_values: np.ndarray,
     ref_point: np.ndarray,

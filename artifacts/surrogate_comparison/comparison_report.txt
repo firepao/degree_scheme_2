@@ -1,0 +1,2 @@
+LightGBM: MSE=1.6695, R2=0.9934, Time=0.17s
+DeepLearning: MSE=1.4143, R2=0.9944, Time=90.52s

@@ -1,20 +1,32 @@
 from __future__ import annotations
 
 import copy
+import logging
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any, List, Tuple
 
 import matplotlib
-
-matplotlib.use("Agg")
-
 import matplotlib.pyplot as plt
 import numpy as np
+
+# Configure logging
+logger = logging.getLogger(__name__)
+
+# Set matplotlib backend to Agg for non-interactive environments
+matplotlib.use("Agg")
 
 from .config import AppConfig
 from .problem import FertilizationProblem
 from ..models.surrogate import SurrogateManager, SurrogateParams
-from ..operators.crossover import build_elite_prototypes, prototype_guided_crossover
+from ..operators.crossover import (
+    build_elite_prototypes, 
+    synergistic_balance_crossover,
+    sbx_crossover,
+    de_crossover,
+    pcx_crossover,
+    adaptive_sbx_crossover,
+)
 from ..operators.initialization import beta_biased_initialize, save_init_distribution_plot
 from ..operators.mutation import (
     build_synergy_antagonism_matrix,
@@ -49,6 +61,8 @@ class BaselineRunner:
         artifact_root.mkdir(parents=True, exist_ok=True)
 
         selected_engine = engine or self.config.optimizer_engine
+
+        logger.info(f"Starting run with engine: {selected_engine}")
 
         if selected_engine == "random_search":
             return self._run_random_search(artifact_root)
@@ -106,11 +120,13 @@ class BaselineRunner:
     def _run_deap_nsga2(self, artifact_root: Path) -> RunArtifacts:
         try:
             from deap import base, creator, tools
-        except ModuleNotFoundError as exc:
+            from tqdm import tqdm
+        except ImportError as exc:
             raise ModuleNotFoundError(
-                "deap 未安装，无法运行 deap_nsga2。请先安装 deap 或改用 random_search。"
+                "Required dependencies (deap, tqdm) not found. Please install them."
             ) from exc
 
+        # Initialize Population
         init_pop = beta_biased_initialize(
             pop_size=self.config.population_size,
             dimension=self.config.dimension,
@@ -121,20 +137,10 @@ class BaselineRunner:
         )
         save_init_distribution_plot(init_pop, artifact_root / "init_distribution.png")
 
-        objective_count = len(self.problem.objectives)
-        fitness_cls_name = "FitnessMinFertOpt"
-        individual_cls_name = "IndividualFertOpt"
+        # Setup DEAP
+        toolbox = self._setup_deap_toolbox(base, creator, tools)
 
-        if not hasattr(creator, fitness_cls_name):
-            creator.create(fitness_cls_name, base.Fitness, weights=tuple([-1.0] * objective_count))
-        if not hasattr(creator, individual_cls_name):
-            creator.create(individual_cls_name, list, fitness=getattr(creator, fitness_cls_name))
-
-        fitness_cls = getattr(creator, fitness_cls_name)
-        individual_cls = getattr(creator, individual_cls_name)
-
-        toolbox = base.Toolbox()
-
+        # Setup Surrogate
         surrogate_manager = SurrogateManager(
             objective_names=list(self.config.objectives),
             params=SurrogateParams(
@@ -145,8 +151,70 @@ class BaselineRunner:
                 model_num_estimators=self.config.surrogate.model_num_estimators,
                 model_learning_rate=self.config.surrogate.model_learning_rate,
                 seed=self.config.seed,
+                model_type=self.config.surrogate.model_type,
+                model_path=self.config.surrogate.model_path or "",
+                scaler_path=self.config.surrogate.scaler_path or "",
             ),
         )
+
+        # Create initial population objects
+        individual_cls = getattr(creator, "IndividualFertOpt")
+        population = [individual_cls(row.tolist()) for row in init_pop]
+
+        # Initial Evaluation
+        init_true = self.problem.evaluate(init_pop)
+        surrogate_manager.initialize(init_pop, init_true)
+        init_eval = surrogate_manager.predict_objectives(init_pop, self.problem.evaluate)
+        for individual, fit in zip(population, init_eval):
+            individual.fitness.values = tuple(float(v) for v in fit)
+
+        # Main Evolution Loop
+        population = toolbox.select(population, len(population))
+        
+        matrix_m = build_synergy_antagonism_matrix(
+            rho_np=self.config.mutation.rho_np,
+            rho_nk=self.config.mutation.rho_nk,
+            rho_pk=self.config.mutation.rho_pk,
+        )
+        stage_sensitivity_cfg = self.config.mutation.stage_sensitivity or [1.0] * self.config.num_stages
+        if len(stage_sensitivity_cfg) != self.config.num_stages:
+            stage_sensitivity_cfg = [1.0] * self.config.num_stages
+
+        for gen_idx in tqdm(range(self.config.num_generations), desc="Evolution", unit="gen"):
+            population = self._evolve_generation(
+                gen_idx, population, toolbox, surrogate_manager, matrix_m, stage_sensitivity_cfg
+            )
+
+        # Save Results
+        final_pop = np.asarray(population, dtype=float)
+        final_obj = np.asarray([ind.fitness.values for ind in population], dtype=float)
+
+        final_population_path = artifact_root / "final_population.csv"
+        final_objective_path = artifact_root / "final_objectives.csv"
+        pareto_front_path = artifact_root / "pareto_front.png"
+        
+        np.savetxt(final_population_path, final_pop, delimiter=",", fmt="%.6f")
+        np.savetxt(final_objective_path, final_obj, delimiter=",", fmt="%.6f")
+        self._save_pareto_front_plot(final_obj, pareto_front_path)
+
+        return RunArtifacts(
+            init_population_path=artifact_root / "init_distribution.png",
+            final_population_path=final_population_path,
+            final_objective_path=final_objective_path,
+            pareto_front_path=pareto_front_path,
+        )
+
+    def _setup_deap_toolbox(self, base, creator, tools) -> base.Toolbox:
+        objective_count = len(self.problem.objectives)
+        fitness_cls_name = "FitnessMinFertOpt"
+        individual_cls_name = "IndividualFertOpt"
+
+        if not hasattr(creator, fitness_cls_name):
+            creator.create(fitness_cls_name, base.Fitness, weights=tuple([-1.0] * objective_count))
+        if not hasattr(creator, individual_cls_name):
+            creator.create(individual_cls_name, list, fitness=getattr(creator, fitness_cls_name))
+
+        toolbox = base.Toolbox()
 
         def evaluate_individual(individual: list[float]) -> tuple[float, ...]:
             values = self.problem.evaluate(np.asarray([individual], dtype=float))[0]
@@ -164,181 +232,245 @@ class BaselineRunner:
                          indpb=1.0 / self.config.dimension)
         toolbox.register("select", tools.selNSGA2)
         toolbox.register("evaluate", evaluate_individual)
+        
+        return toolbox
 
-        population = [individual_cls(row.tolist()) for row in init_pop]
+    def _evolve_generation(
+        self, 
+        gen_idx: int, 
+        population: List[Any], 
+        toolbox: Any, 
+        surrogate_manager: SurrogateManager,
+        matrix_m: np.ndarray,
+        stage_sensitivity_cfg: List[float]
+    ) -> List[Any]:
+        
+        # Calculate Diversity Pressure
+        population_array = np.asarray(population, dtype=float)
+        population_std = float(np.mean(np.std(population_array, axis=0)))
+        normalized_diversity = population_std / max(self.config.var_upper_bound - self.config.var_lower_bound, 1e-8)
+        diversity_pressure = float(np.clip(1.0 - normalized_diversity, 0.0, 1.0))
 
-        init_true = self.problem.evaluate(init_pop)
-        surrogate_manager.initialize(init_pop, init_true)
-        init_eval = surrogate_manager.predict_objectives(init_pop, self.problem.evaluate)
-        for individual, fit in zip(population, init_eval):
-            individual.fitness.values = tuple(float(v) for v in fit)
+        # Offspring Generation
+        offspring = [toolbox.clone(ind) for ind in population]
+        # Random shuffle implicit in pairing logic below or just shuffle now
+        self.rng.shuffle(offspring) # In-place shuffle for random mating
 
-        population = toolbox.select(population, len(population))
-
+        # Crossover
         crossover_prob = 0.9
-        mutation_prob = self.config.mutation.p0
-        matrix_m = build_synergy_antagonism_matrix(
-            rho_np=self.config.mutation.rho_np,
-            rho_nk=self.config.mutation.rho_nk,
-            rho_pk=self.config.mutation.rho_pk,
-        )
-        stage_sensitivity_cfg = self.config.mutation.stage_sensitivity or [1.0] * self.config.num_stages
-        if len(stage_sensitivity_cfg) != self.config.num_stages:
-            stage_sensitivity_cfg = [1.0] * self.config.num_stages
-
-        for gen_idx in range(self.config.num_generations):
-            population_array = np.asarray(population, dtype=float)
-            objective_array = np.asarray([individual.fitness.values for individual in population], dtype=float)
-            population_std = float(np.mean(np.std(population_array, axis=0)))
-            normalized_diversity = population_std / max(self.config.var_upper_bound - self.config.var_lower_bound, 1e-8)
-            diversity_pressure = float(np.clip(1.0 - normalized_diversity, 0.0, 1.0))
-            prototypes = None
-            if self.config.use_prototype_crossover:
-                prototypes = build_elite_prototypes(
-                    population=population_array,
-                    objective_values=objective_array,
-                    prototype_count=self.config.crossover.prototype_count,
-                    elite_ratio=self.config.crossover.elite_ratio,
-                    kmeans_iters=self.config.crossover.kmeans_iters,
-                    rng=self.rng,
-                )
-
-            indices = self.rng.integers(0, len(population), size=len(population))
-            offspring = [population[idx] for idx in indices]
-            offspring = [toolbox.clone(individual) for individual in offspring]
-
-            for ind1, ind2 in zip(offspring[::2], offspring[1::2]):
-                if self.rng.random() <= crossover_prob:
-                    if self.config.use_prototype_crossover and prototypes is not None:
-                        try:
-                            child1_np, child2_np = prototype_guided_crossover(
-                                parent_a=np.asarray(ind1, dtype=float),
-                                parent_b=np.asarray(ind2, dtype=float),
-                                prototypes=prototypes,
+        crossover_method = self.config.crossover.crossover_method.lower()
+        
+        for i in range(0, len(offspring) - 1, 2): # Step by 2
+            ind1, ind2 = offspring[i], offspring[i+1]
+            if self.rng.random() <= crossover_prob:
+                if self.config.use_prototype_crossover:
+                    parent_a = np.asarray(ind1, dtype=float)
+                    parent_b = np.asarray(ind2, dtype=float)
+                    
+                    try:
+                        if crossover_method == "sbc":
+                            # 原有协同平衡交叉
+                            child1_np, child2_np = synergistic_balance_crossover(
+                                parent_a=parent_a,
+                                parent_b=parent_b,
                                 stage_count=self.config.num_stages,
-                                gamma0=self.config.crossover.gamma0,
-                                generation_index=gen_idx,
-                                max_generations=self.config.num_generations,
+                                alpha=0.5,
                                 lower_bound=self.config.var_lower_bound,
                                 upper_bound=self.config.var_upper_bound,
                                 rng=self.rng,
                             )
-                            ind1[:] = child1_np.tolist()
-                            ind2[:] = child2_np.tolist()
-                        except ValueError:
-                            toolbox.mate(ind1, ind2)
-                    else:
-                        toolbox.mate(ind1, ind2)
-                    del ind1.fitness.values
-                    del ind2.fitness.values
-
-            for mutant in offspring:
-                if self.rng.random() <= mutation_prob:
-                    mutant_np = np.asarray(mutant, dtype=float)
-                    reshaped = mutant_np.reshape(self.config.num_stages, 3)
-                    deficiency_score = float(
-                        np.mean(np.abs(reshaped[:, 0] - 0.5 * (reshaped[:, 1] + reshaped[:, 2])))
-                        / max(self.config.var_upper_bound - self.config.var_lower_bound, 1e-8)
-                    )
-                    stage_idx = int(self.rng.integers(0, self.config.num_stages))
-                    stage_sensitivity = float(stage_sensitivity_cfg[stage_idx])
-                    adaptive_prob = dynamic_mutation_probability(
-                        p0=self.config.mutation.p0,
-                        beta=self.config.mutation.beta,
-                        gamma=self.config.mutation.gamma,
-                        delta=self.config.mutation.delta,
-                        deficiency_score=float(np.clip(deficiency_score, 0.0, 1.0)),
-                        stage_sensitivity=stage_sensitivity,
-                        diversity_pressure=diversity_pressure,
-                        p_max=self.config.mutation.p_max,
-                    )
-
-                    if self.rng.random() <= adaptive_prob:
-                        if self.config.use_coupled_mutation:
-                            mutated = coupled_mutation(
-                                individual=mutant_np,
-                                num_stages=self.config.num_stages,
-                                matrix_m=matrix_m,
-                                sigma_base=self.config.mutation.sigma_base,
-                                alpha_knowledge=self.config.mutation.alpha_knowledge,
+                        elif crossover_method == "adaptive_sbx":
+                            child1_np, child2_np = adaptive_sbx_crossover(
+                                parent_a=parent_a,
+                                parent_b=parent_b,
+                                current_gen=gen_idx,
+                                max_gen=self.config.num_generations,
+                                eta_start=15.0,
+                                eta_end=30.0,
                                 lower_bound=self.config.var_lower_bound,
                                 upper_bound=self.config.var_upper_bound,
                                 rng=self.rng,
                             )
-                            mutant[:] = mutated.tolist()
+                        elif crossover_method == "sbx":
+                            # SBX 交叉算子
+                            child1_np, child2_np = sbx_crossover(
+                                parent_a=parent_a,
+                                parent_b=parent_b,
+                                eta=20.0,
+                                lower_bound=self.config.var_lower_bound,
+                                upper_bound=self.config.var_upper_bound,
+                                rng=self.rng,
+                            )
+                        elif crossover_method == "de":
+                            # DE 差分进化交叉 (需要额外父代，使用自身作为占位)
+                            parent_c = parent_a  # 简化处理
+                            child1_np, _ = de_crossover(
+                                parent_a=parent_a,
+                                parent_b=parent_b,
+                                parent_c=parent_c,
+                                cr=0.9,
+                                f=0.5,
+                                lower_bound=self.config.var_lower_bound,
+                                upper_bound=self.config.var_upper_bound,
+                                rng=self.rng,
+                            )
+                            child2_np, _ = de_crossover(
+                                parent_a=parent_b,
+                                parent_b=parent_a,
+                                parent_c=parent_c,
+                                cr=0.9,
+                                f=0.5,
+                                lower_bound=self.config.var_lower_bound,
+                                upper_bound=self.config.var_upper_bound,
+                                rng=self.rng,
+                            )
+                        elif crossover_method == "pcx":
+                            # PCX 父代中心交叉
+                            child1_np, child2_np = pcx_crossover(
+                                parent_a=parent_a,
+                                parent_b=parent_b,
+                                parent_c=None,
+                                eta=0.5,
+                                zeta=0.5,
+                                lower_bound=self.config.var_lower_bound,
+                                upper_bound=self.config.var_upper_bound,
+                                rng=self.rng,
+                            )
                         else:
-                            toolbox.mutate(mutant)
-                    else:
-                        toolbox.mutate(mutant)
-                    del mutant.fitness.values
+                            # 默认使用 SBC
+                            child1_np, child2_np = synergistic_balance_crossover(
+                                parent_a=parent_a,
+                                parent_b=parent_b,
+                                stage_count=self.config.num_stages,
+                                alpha=0.5,
+                                lower_bound=self.config.var_lower_bound,
+                                upper_bound=self.config.var_upper_bound,
+                                rng=self.rng,
+                            )
+                        
+                        ind1[:] = child1_np.tolist()
+                        ind2[:] = child2_np.tolist()
+                    except (ValueError, Exception) as e:
+                        # 如果新算子失败，回退到默认 SBX
+                        logger.warning(f"Crossover failed ({crossover_method}), using default SBX: {e}")
+                        toolbox.mate(ind1, ind2)
+                else:
+                    toolbox.mate(ind1, ind2)
+                del ind1.fitness.values
+                del ind2.fitness.values
 
-            invalid_individuals = [ind for ind in offspring if not ind.fitness.valid]
-            if invalid_individuals:
-                invalid_x = np.asarray(invalid_individuals, dtype=float)
-                invalid_obj = surrogate_manager.predict_objectives(invalid_x, self.problem.evaluate)
-                for individual, fit in zip(invalid_individuals, invalid_obj):
-                    individual.fitness.values = tuple(float(v) for v in fit)
+        # Mutation
+        mutation_prob = self.config.mutation.p0
+        for mutant in offspring:
+            if self.rng.random() <= mutation_prob:
+                self._apply_adaptive_mutation(
+                    mutant, diversity_pressure, matrix_m, stage_sensitivity_cfg, toolbox
+                )
+                del mutant.fitness.values
 
-            combined_population = population + offspring
+        # Evaluation (Surrogate Assisted)
+        invalid_individuals = [ind for ind in offspring if not ind.fitness.valid]
+        if invalid_individuals:
+            invalid_x = np.asarray(invalid_individuals, dtype=float)
+            invalid_obj = surrogate_manager.predict_objectives(invalid_x, self.problem.evaluate)
+            for individual, fit in zip(invalid_individuals, invalid_obj):
+                individual.fitness.values = tuple(float(v) for v in fit)
+
+        # Selection
+        combined_population = population + offspring
+        if self.config.use_dynamic_elite_retention:
             combined_decision = np.asarray(combined_population, dtype=float)
             combined_objective = np.asarray(
                 [individual.fitness.values for individual in combined_population],
                 dtype=float,
             )
-            if self.config.use_dynamic_elite_retention:
-                selected_indices = dynamic_elite_select_indices(
-                    objective_values=combined_objective,
-                    decision_values=combined_decision,
-                    select_size=self.config.population_size,
-                    generation_index=gen_idx,
-                    max_generations=self.config.num_generations,
-                    alpha0=self.config.selection.alpha0,
-                    beta_decay=self.config.selection.beta_decay,
-                    omega_f=self.config.selection.omega_f,
-                    omega_x=self.config.selection.omega_x,
-                    k_neighbors=self.config.selection.k_neighbors,
-                )
-                population = [combined_population[idx] for idx in selected_indices]
-            else:
-                population = toolbox.select(combined_population, self.config.population_size)
-
-            population_array_after_select = np.asarray(population, dtype=float)
-            updated = surrogate_manager.active_update(
-                generation_index=gen_idx + 1,
-                x_candidates=population_array_after_select,
-                true_eval_fn=self.problem.evaluate,
+            selected_indices = dynamic_elite_select_indices(
+                objective_values=combined_objective,
+                decision_values=combined_decision,
+                select_size=self.config.population_size,
+                generation_index=gen_idx,
+                max_generations=self.config.num_generations,
+                alpha0=self.config.selection.alpha0,
+                beta_decay=self.config.selection.beta_decay,
+                omega_f=self.config.selection.omega_f,
+                omega_x=self.config.selection.omega_x,
+                k_neighbors=self.config.selection.k_neighbors,
             )
-            if updated:
-                refreshed_obj = surrogate_manager.predict_objectives(population_array_after_select, self.problem.evaluate)
-                for individual, fit in zip(population, refreshed_obj):
-                    individual.fitness.values = tuple(float(v) for v in fit)
+            population = [combined_population[idx] for idx in selected_indices]
+        else:
+            population = toolbox.select(combined_population, self.config.population_size)
 
-        final_pop = np.asarray(population, dtype=float)
-        final_obj = np.asarray([individual.fitness.values for individual in population], dtype=float)
-
-        final_population_path = artifact_root / "final_population.csv"
-        final_objective_path = artifact_root / "final_objectives.csv"
-        pareto_front_path = artifact_root / "pareto_front.png"
-        np.savetxt(final_population_path, final_pop, delimiter=",", fmt="%.6f")
-        np.savetxt(final_objective_path, final_obj, delimiter=",", fmt="%.6f")
-        self._save_pareto_front_plot(final_obj, pareto_front_path)
-
-        return RunArtifacts(
-            init_population_path=artifact_root / "init_distribution.png",
-            final_population_path=final_population_path,
-            final_objective_path=final_objective_path,
-            pareto_front_path=pareto_front_path,
+        # Active Learning Update
+        population_array_after_select = np.asarray(population, dtype=float)
+        updated = surrogate_manager.active_update(
+            generation_index=gen_idx + 1,
+            x_candidates=population_array_after_select,
+            true_eval_fn=self.problem.evaluate,
         )
+        if updated:
+            refreshed_obj = surrogate_manager.predict_objectives(population_array_after_select, self.problem.evaluate)
+            for individual, fit in zip(population, refreshed_obj):
+                individual.fitness.values = tuple(float(v) for v in fit)
+                
+        return population
+
+    def _apply_adaptive_mutation(
+        self, 
+        mutant: Any, 
+        diversity_pressure: float, 
+        matrix_m: np.ndarray,
+        stage_sensitivity_cfg: List[float],
+        toolbox: Any
+    ) -> None:
+        mutant_np = np.asarray(mutant, dtype=float)
+        reshaped = mutant_np.reshape(self.config.num_stages, 3)
+        deficiency_score = float(
+            np.mean(np.abs(reshaped[:, 0] - 0.5 * (reshaped[:, 1] + reshaped[:, 2])))
+            / max(self.config.var_upper_bound - self.config.var_lower_bound, 1e-8)
+        )
+        stage_idx = int(self.rng.integers(0, self.config.num_stages))
+        stage_sensitivity = float(stage_sensitivity_cfg[stage_idx])
+        
+        adaptive_prob = dynamic_mutation_probability(
+            p0=self.config.mutation.p0,
+            beta=self.config.mutation.beta,
+            gamma=self.config.mutation.gamma,
+            delta=self.config.mutation.delta,
+            deficiency_score=float(np.clip(deficiency_score, 0.0, 1.0)),
+            stage_sensitivity=stage_sensitivity,
+            diversity_pressure=diversity_pressure,
+            p_max=self.config.mutation.p_max,
+        )
+
+        if self.rng.random() <= adaptive_prob:
+            if self.config.use_coupled_mutation:
+                mutated = coupled_mutation(
+                    individual=mutant_np,
+                    num_stages=self.config.num_stages,
+                    matrix_m=matrix_m,
+                    sigma_base=self.config.mutation.sigma_base,
+                    alpha_knowledge=self.config.mutation.alpha_knowledge,
+                    lower_bound=self.config.var_lower_bound,
+                    upper_bound=self.config.var_upper_bound,
+                    rng=self.rng,
+                )
+                mutant[:] = mutated.tolist()
+            else:
+                toolbox.mutate(mutant)
+        else:
+            toolbox.mutate(mutant)
 
     def _save_pareto_front_plot(self, objective_values: np.ndarray, out_path: Path) -> None:
         if objective_values.ndim != 2 or objective_values.shape[0] == 0:
-            raise ValueError("objective_values 必须是二维且包含至少一个解")
+            logger.warning("No objective values to plot for Pareto front.")
+            return
 
         out_path.parent.mkdir(parents=True, exist_ok=True)
         num_obj = objective_values.shape[1]
 
+        fig = plt.figure(figsize=(7, 5))
+        
         if num_obj >= 3:
-            fig = plt.figure(figsize=(7, 5))
             ax = fig.add_subplot(111, projection="3d")
             ax.scatter(
                 objective_values[:, 0],
@@ -353,7 +485,6 @@ class BaselineRunner:
             ax.set_zlabel("Objective 3")
             ax.set_title("Pareto Front (First 3 Objectives)")
         else:
-            plt.figure(figsize=(7, 5))
             plt.scatter(
                 objective_values[:, 0],
                 objective_values[:, 1],
@@ -367,4 +498,4 @@ class BaselineRunner:
 
         plt.tight_layout()
         plt.savefig(out_path, dpi=150)
-        plt.close()
+        plt.close(fig)

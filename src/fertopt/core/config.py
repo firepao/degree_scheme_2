@@ -28,6 +28,7 @@ class CrossoverConfig:
     prototype_count: int = 4
     elite_ratio: float = 0.25
     kmeans_iters: int = 15
+    crossover_method: str = "sbc"  # sbc, sbx, de, pcx
 
 
 @dataclass(slots=True)
@@ -38,6 +39,9 @@ class SurrogateConfig:
     target_objectives: List[str]
     model_num_estimators: int
     model_learning_rate: float
+    model_type: str = "lightgbm"
+    model_path: str | None = None
+    scaler_path: str | None = None
 
 
 @dataclass(slots=True)
@@ -112,6 +116,7 @@ def load_config(path: str | Path) -> AppConfig:
             prototype_count=raw["crossover"].get("prototype_count", 4),
             elite_ratio=raw["crossover"].get("elite_ratio", 0.25),
             kmeans_iters=raw["crossover"].get("kmeans_iters", 15),
+            crossover_method=raw["crossover"].get("crossover_method", "sbc"),
         ),
         selection=SelectionConfig(
             alpha0=raw.get("selection", {}).get("alpha0", 0.5),
@@ -121,11 +126,14 @@ def load_config(path: str | Path) -> AppConfig:
             k_neighbors=raw.get("selection", {}).get("k_neighbors", 5),
         ),
         surrogate=SurrogateConfig(
-            enabled=raw["surrogate"].get("enabled", False),
-            update_interval_g=raw["surrogate"]["update_interval_g"],
-            query_batch_size=raw["surrogate"]["query_batch_size"],
-            target_objectives=raw["surrogate"].get("target_objectives", ["yield", "nitrogen_loss"]),
-            model_num_estimators=raw["surrogate"].get("model_num_estimators", 200),
-            model_learning_rate=raw["surrogate"].get("model_learning_rate", 0.05),
+            enabled=raw.get("surrogate", {}).get("enabled", False),
+            update_interval_g=raw.get("surrogate", {}).get("update_interval_g", 5),
+            query_batch_size=raw.get("surrogate", {}).get("query_batch_size", 20),
+            target_objectives=raw.get("surrogate", {}).get("target_objectives", ["yield", "nitrogen_loss"]),
+            model_num_estimators=raw.get("surrogate", {}).get("model_num_estimators", 200),
+            model_learning_rate=raw.get("surrogate", {}).get("model_learning_rate", 0.05),
+            model_type=raw.get("surrogate", {}).get("model_type", "lightgbm"),
+            model_path=raw.get("surrogate", {}).get("model_path"),
+            scaler_path=raw.get("surrogate", {}).get("scaler_path"),
         ),
     )

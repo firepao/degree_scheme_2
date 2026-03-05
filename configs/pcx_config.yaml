@@ -1,0 +1,59 @@
+seed: 42
+optimizer_engine: deap_nsga2
+population_size: 80
+num_generations: 60
+num_stages: 4
+nutrients: [N, P, K]
+beta_strength_k: 8.0
+var_lower_bound: 0.0
+var_upper_bound: 300.0
+
+# 动态变异概率参数
+mutation:
+  p0: 0.1
+  beta: 0.4
+  gamma: 0.3
+  delta: 0.2
+  sigma_base: 5.0
+  alpha_knowledge: 0.3
+  rho_np: 0.4
+  rho_nk: -0.2
+  rho_pk: 0.15
+  p_max: 0.6
+  stage_sensitivity: [1.0, 0.9, 1.1, 1.0]
+
+# 交叉算子配置 - 使用 PCX
+crossover:
+  gamma0: 0.05
+  prototype_count: 5
+  elite_ratio: 0.1
+  kmeans_iters: 15
+  crossover_method: pcx  # 使用 PCX 交叉算子
+
+# 动态精英保留参数
+selection:
+  alpha0: 0.8
+  beta_decay: 1.0
+  omega_f: 0.4
+  omega_x: 0.6
+  k_neighbors: 15
+
+# 评估目标
+objectives:
+  - yield
+  - cost
+  - nitrogen_loss
+
+# 模块开关
+use_prototype_crossover: true
+use_coupled_mutation: true
+use_dynamic_elite_retention: true
+
+# 代理模型
+surrogate:
+  enabled: false
+  update_interval_g: 10
+  query_batch_size: 6
+  target_objectives: [yield, nitrogen_loss]
+  model_num_estimators: 200
+  model_learning_rate: 0.05

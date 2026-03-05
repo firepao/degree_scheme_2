@@ -49,6 +49,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--prototype-flags", type=str, choices=["True", "False"], help="Use prototype crossover")
     parser.add_argument("--coupled-flags", type=str, choices=["True", "False"], help="Use coupled mutation")
     parser.add_argument("--dynamic-elite-flags", type=str, choices=["True", "False"], help="Use dynamic elite retention")
+    parser.add_argument("--crossover-method", type=str, choices=["sbc", "sbx", "de", "pcx", "adaptive_sbx"], 
+                        help="Crossover operator method")
     
     return parser.parse_args()
 
@@ -66,6 +68,8 @@ def main() -> None:
         cfg.use_coupled_mutation = (args.coupled_flags == "True")
     if args.dynamic_elite_flags is not None:
         cfg.use_dynamic_elite_retention = (args.dynamic_elite_flags == "True")
+    if args.crossover_method is not None:
+        cfg.crossover.crossover_method = args.crossover_method
 
     project_root = Path(__file__).resolve().parent.parent
     registry = build_default_registry(str(project_root))
